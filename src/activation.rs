@@ -27,6 +27,6 @@ impl Activation for Softmax {
 
 impl Derivative for ReLU {
     fn derivative(&self, input: &Array1<f32>) -> Array1<f32> {
-        unimplemented!()
+        input.map(|x| if x < &0.0 { 0.0 } else { 1.0 })
     }
 }

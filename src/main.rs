@@ -2,7 +2,7 @@ mod activation;
 use crate::activation::{Activation, Derivative, ReLU, Softmax};
 use ndarray::{Array1, Array2, ShapeError};
 fn main() {
-    let inputs = Array1::from_vec(vec![-1.0, 2.0, 3.0, 4.0]);
+    let inputs = Array1::from_vec(vec![-50.0, 2.0, 3.0, 4.0]);
     let layer = Layer::new(ReLU {}, 3, 4);
     println!("{:?}", layer.forward(inputs));
 }
