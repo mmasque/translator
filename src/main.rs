@@ -1,10 +1,15 @@
 mod activation;
-use crate::activation::{Activation, Derivative, ReLU, Softmax};
-use ndarray::{Array1, Array2, ShapeError};
+
+use crate::activation::{Activation, Derivative, ReLU};
+use layer::Layer;
+use ndarray::{Array1, Array2};
+mod layer;
+mod outer;
 fn main() {
     let inputs = Array1::from_vec(vec![-50.0, 2.0, 3.0, 4.0]);
-    let layer = Layer::new(ReLU {}, 3, 4);
-    println!("{:?}", layer.forward(inputs));
+    let inputs2 = Array1::from_vec(vec![-5.0, 5.0, 2.0]);
+    let builder = NetworkBuilder::new();
+    let mut network = builder.add_layer(3).add_layer(4).add_layer(3).build();
 }
 // the first goal is to build a simple neural network.
 
@@ -15,42 +20,49 @@ fn main() {
 // will need to implement backpropagation
 // the dataset will be MINST, from here: https://deepai.org/dataset/mnist
 
-// this activation layout is already a bit annoying:
-pub struct Layer<T, F: Activation + Derivative> {
-    pub Weights: Array2<T>,
-    pub Biases: Array1<T>,
-    pub Activation: F,
+struct Network {
+    layers: Vec<Layer<f32, ReLU>>,
 }
 
-// what do layers need?
-// inputs to each node
-// outputs from each node (or none)
-// weights
-// biases
-// activation
+impl Network {
+    pub fn new() -> Self {
+        Self { layers: vec![] }
+    }
+    pub fn forward(&self, inputs: &Array1<f32>) {
+        // TODO allow inputs to be borrowed in a nicer way, without needing to clone
+        let result = self
+            .layers
+            .iter()
+            .fold(inputs.clone(), |prev, x| x.forward(&prev));
+    }
+}
 
-// want: to note the num_nodes, num_inputs as requirements for the input dimensions of forward
-impl<F: Activation + Derivative> Layer<f32, F> {
-    pub fn new(activation: F, num_nodes: usize, num_inputs: usize) -> Self {
+struct NetworkBuilder {
+    network: Network,
+}
+
+impl NetworkBuilder {
+    pub fn new() -> Self {
         Self {
-            Weights: Array2::<f32>::ones((num_nodes, num_inputs)),
-            Biases: Array1::<f32>::zeros(num_nodes),
-            Activation: activation,
+            network: Network::new(),
         }
     }
-    // forward pass
-    pub fn forward(&self, inputs: Array1<f32>) -> Array1<f32> {
-        // could maybe use a Box and std [[]] since then we can provide dimensions and avoid
-        // the possible panic from Weights.dot
-        let z = self.Weights.dot(&inputs) + &self.Biases;
-        self.Activation.activate(&z)
-    }
+    pub fn add_layer(mut self, num_nodes: usize) -> Self {
+        // get the number of nodes in the previous layer (the last in the list)
+        let num_inputs = self
+            .network
+            .layers
+            .last()
+            .map(|x| x.biases.len())
+            .unwrap_or(num_nodes); // if empty the layer is input nodes
 
-    pub fn backpropagation(&self, inputs: Array1<f32>, dC_dq: Array1<f32>) -> Array1<f32> {
-        unimplemented!();
-        // we want, for loss C, dC/dw for each weight w, and dC/db for each bias b.
-        // chain rule: dq/dw * dC/dq = dc/dw, for q any previous (right to left) ops.
-        //let i_d = self.Activation.derivative(&inputs);
-        // w1*i1 + w2*i2 + w3*i3 + w4*i4]
+        self.network
+            .layers
+            .push(Layer::new(ReLU {}, num_nodes, num_inputs));
+
+        self
+    }
+    pub fn build(self) -> Network {
+        self.network
     }
 }
