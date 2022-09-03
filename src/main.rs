@@ -35,6 +35,13 @@ impl Network {
             .iter()
             .fold(inputs.clone(), |prev, x| x.forward(&prev));
     }
+    pub fn backpropagation(&mut self, result: Array1<f32>, expected: Array1<f32>) {
+        // compute the loss
+        let loss = result
+            .iter()
+            .zip(expected.iter())
+            .fold(0.0, |total, (x, y)| total + (x - y).powi(2)); //TODO extract to a Loss enum to support multiple enum types
+    }
 }
 
 struct NetworkBuilder {
