@@ -6,6 +6,8 @@ use ndarray::{arr1, arr2, Array1, Array2};
 mod layer;
 mod outer;
 fn main() {
+    // to verify correctness I'm using https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
+    // which walks through the weight values at every step etc
     let inputs = Array1::from_vec(vec![0.05, 0.1]);
     let expected = Array1::from_vec(vec![0.01, 0.99]);
     let builder = NetworkBuilder::new();
@@ -13,9 +15,12 @@ fn main() {
         .add_layer_manually(arr2(&[[0.15, 0.2], [0.25, 0.3]]), arr1(&[0.35, 0.35]))
         .add_layer_manually(arr2(&[[0.4, 0.45], [0.5, 0.55]]), arr1(&[0.6, 0.6]))
         .build();
-    let out = network.forward(&inputs);
-    let loss = network.backpropagation(&out, &expected);
-    println!("out {:?}; loss {:?}", &out, &loss);
+    // just do the same thing a bunch and see if loss goes down
+    for i in (0..1000) {
+        let out = network.forward(&inputs);
+        let loss = network.backpropagation(&out, &expected);
+        print!("| {:?} ", loss);
+    }
 }
 // the first goal is to build a simple neural network.
 
@@ -40,20 +45,19 @@ impl Network {
             .iter_mut()
             .fold(inputs.clone(), |prev, x| x.forward(&prev))
     }
-    pub fn backpropagation(&mut self, result: &Array1<f32>, expected: &Array1<f32>) {
+    pub fn backpropagation(&mut self, result: &Array1<f32>, expected: &Array1<f32>) -> f32 {
         // backprop as used here is a misnomer, because we are combining it with gradient descent to update weights and biases.
         //TODO extract to a Loss enum to support multiple enum types
         let loss = SquareError::loss(result, expected);
-        println!("Loss: {:?}", loss);
         // compute change in loss wrt output layer
         let de_dr = SquareError::derivative(result, expected);
-        println!("{:?}", de_dr);
 
         //
         self.layers
             .iter_mut()
             .rev()
             .fold(de_dr, |de_dyj, layer| layer.backpropagation(&de_dyj, 0.5));
+        loss
     }
 }
 
