@@ -1,18 +1,21 @@
 mod activation;
 
-use crate::activation::{Activation, Derivative, ReLU};
+use activation::{Logistic, Loss, ParamDerivative, SquareError};
 use layer::Layer;
-use ndarray::{Array, Array1, Array2};
+use ndarray::{arr1, arr2, Array1, Array2};
 mod layer;
 mod outer;
 fn main() {
-    let inputs = Array1::from_vec(vec![2.0, 3.0, 4.0]);
-    let expected = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+    let inputs = Array1::from_vec(vec![0.05, 0.1]);
+    let expected = Array1::from_vec(vec![0.01, 0.99]);
     let builder = NetworkBuilder::new();
-    let mut network = builder.add_layer(3).add_layer(4).add_layer(3).build();
+    let mut network = builder
+        .add_layer_manually(arr2(&[[0.15, 0.2], [0.25, 0.3]]), arr1(&[0.35, 0.35]))
+        .add_layer_manually(arr2(&[[0.4, 0.45], [0.5, 0.55]]), arr1(&[0.6, 0.6]))
+        .build();
     let out = network.forward(&inputs);
     let loss = network.backpropagation(&out, &expected);
-    println!("out {:?}; loss {:?}", &out, loss);
+    println!("out {:?}; loss {:?}", &out, &loss);
 }
 // the first goal is to build a simple neural network.
 
@@ -24,26 +27,33 @@ fn main() {
 // the dataset will be MINST, from here: https://deepai.org/dataset/mnist
 
 struct Network {
-    layers: Vec<Layer<f32, ReLU>>,
+    layers: Vec<Layer<f32, Logistic>>,
 }
 
 impl Network {
     pub fn new() -> Self {
         Self { layers: vec![] }
     }
-    pub fn forward(&self, inputs: &Array1<f32>) -> Array1<f32> {
+    pub fn forward(&mut self, inputs: &Array1<f32>) -> Array1<f32> {
         // TODO allow inputs to be borrowed in a nicer way, without needing to clone
         self.layers
-            .iter()
+            .iter_mut()
             .fold(inputs.clone(), |prev, x| x.forward(&prev))
     }
-    pub fn backpropagation(&mut self, result: &Array1<f32>, expected: &Array1<f32>) -> f32 {
-        // compute the loss
-        let loss = result
-            .iter()
-            .zip(expected.iter())
-            .fold(0.0, |total, (x, y)| total + (x - y).powi(2)); //TODO extract to a Loss enum to support multiple enum types
-        loss
+    pub fn backpropagation(&mut self, result: &Array1<f32>, expected: &Array1<f32>) {
+        // backprop as used here is a misnomer, because we are combining it with gradient descent to update weights and biases.
+        //TODO extract to a Loss enum to support multiple enum types
+        let loss = SquareError::loss(result, expected);
+        println!("Loss: {:?}", loss);
+        // compute change in loss wrt output layer
+        let de_dr = SquareError::derivative(result, expected);
+        println!("{:?}", de_dr);
+
+        //
+        self.layers
+            .iter_mut()
+            .rev()
+            .fold(de_dr, |de_dyj, layer| layer.backpropagation(&de_dyj, 0.5));
     }
 }
 
@@ -68,8 +78,14 @@ impl NetworkBuilder {
 
         self.network
             .layers
-            .push(Layer::new(ReLU {}, num_nodes, num_inputs));
+            .push(Layer::basic(Logistic {}, num_nodes, num_inputs));
 
+        self
+    }
+    pub fn add_layer_manually(mut self, weights: Array2<f32>, biases: Array1<f32>) -> Self {
+        self.network
+            .layers
+            .push(Layer::new(Logistic {}, weights, biases));
         self
     }
     pub fn build(self) -> Network {
