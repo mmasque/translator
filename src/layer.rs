@@ -2,6 +2,8 @@ use super::outer;
 use crate::activation::{Activation, Derivative};
 // use log::debug;
 use ndarray::{Array1, Array2};
+use rand::random;
+
 #[derive(Debug)]
 pub struct Layer<T, F: Activation + Derivative> {
     pub weights: Array2<T>,
@@ -43,6 +45,14 @@ impl<F: Activation + Derivative> Layer<f32, F> {
             cache: None,
         }
     }
+    pub fn random(activation: F, num_nodes: usize, num_inputs: usize) -> Self {
+        Self {
+            weights: Array2::<f32>::from_shape_simple_fn((num_nodes, num_inputs), random::<f32>),
+            biases: Array1::<f32>::from_shape_simple_fn(num_nodes, random::<f32>),
+            activation: activation,
+            cache: None,
+        }
+    }
     // forward pass
     pub fn forward(&mut self, inputs: &Array1<f32>) -> Array1<f32> {
         let x = self.weights.dot(inputs) + &self.biases;
@@ -62,29 +72,29 @@ impl<F: Activation + Derivative> Layer<f32, F> {
         // dE_dyj is the change in Error (cost) with respect to the outputs of the previous layer j, yj.
         // We'll compute dE_dyi (i the current layer), and along the way find dE/dw for the weights in this layer.
         let cache = self.cache.as_ref().unwrap();
-        //println!(
-        //   "cache weighted_inputs: {:?}, cache outputs: {:?}",
-        //    cache.weigthed_inputs, cache.net_inputs
-        //);
+        println!(
+            "cache weighted_inputs: {:?}, cache outputs: {:?}",
+            cache.weigthed_inputs, cache.net_inputs
+        );
         let dyj_dxj = self.activation.derivative(&cache.weigthed_inputs);
-        // println!("The change of y wr x is: {:?}", dyj_dxj);
+        println!("The change of y wr x is: {:?}", dyj_dxj);
 
         let de_dxj = de_dyj * dyj_dxj;
-        // println!("The change of E wr xj is: {:?}", de_dxj);
+        println!("The change of E wr xj is: {:?}", de_dxj);
         // this is probably slow. computes weight diffs
         let de_dwji = outer::outer(&de_dxj, &cache.net_inputs);
 
-        // println!("The change of E wr wji is: {:?}", de_dwji);
+        println!("The change of E wr wji is: {:?}", de_dwji);
         // compute dE_dyi
         let de_dyi = self.weights.dot(&de_dxj);
 
-        // println!("The change of E wr yi is: {:?}", de_dyi);
+        println!("The change of E wr yi is: {:?}", de_dyi);
         // update the weights
         self.weights = &self.weights - learning_rate * de_dwji;
-        // println!("The weights are now: {:?}", self.weights);
+        println!("The weights are now: {:?}", self.weights);
         // bias updates
         self.biases = &self.biases - learning_rate * de_dxj;
-        // println!("The biases are now: {:?}", self.biases);
+        println!("The biases are now: {:?}", self.biases);
 
         de_dyi
     }
