@@ -2,14 +2,17 @@ mod activation;
 
 use crate::activation::{Activation, Derivative, ReLU};
 use layer::Layer;
-use ndarray::{Array1, Array2};
+use ndarray::{Array, Array1, Array2};
 mod layer;
 mod outer;
 fn main() {
-    let inputs = Array1::from_vec(vec![-50.0, 2.0, 3.0, 4.0]);
-    let inputs2 = Array1::from_vec(vec![-5.0, 5.0, 2.0]);
+    let inputs = Array1::from_vec(vec![2.0, 3.0, 4.0]);
+    let expected = Array1::from_vec(vec![1.0, 2.0, 3.0]);
     let builder = NetworkBuilder::new();
     let mut network = builder.add_layer(3).add_layer(4).add_layer(3).build();
+    let out = network.forward(&inputs);
+    let loss = network.backpropagation(&out, &expected);
+    println!("out {:?}; loss {:?}", &out, loss);
 }
 // the first goal is to build a simple neural network.
 
@@ -28,19 +31,19 @@ impl Network {
     pub fn new() -> Self {
         Self { layers: vec![] }
     }
-    pub fn forward(&self, inputs: &Array1<f32>) {
+    pub fn forward(&self, inputs: &Array1<f32>) -> Array1<f32> {
         // TODO allow inputs to be borrowed in a nicer way, without needing to clone
-        let result = self
-            .layers
+        self.layers
             .iter()
-            .fold(inputs.clone(), |prev, x| x.forward(&prev));
+            .fold(inputs.clone(), |prev, x| x.forward(&prev))
     }
-    pub fn backpropagation(&mut self, result: Array1<f32>, expected: Array1<f32>) {
+    pub fn backpropagation(&mut self, result: &Array1<f32>, expected: &Array1<f32>) -> f32 {
         // compute the loss
         let loss = result
             .iter()
             .zip(expected.iter())
             .fold(0.0, |total, (x, y)| total + (x - y).powi(2)); //TODO extract to a Loss enum to support multiple enum types
+        loss
     }
 }
 

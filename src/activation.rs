@@ -8,6 +8,7 @@ pub trait Derivative {
     fn derivative(&self, input: &Array1<f32>) -> Array1<f32>;
 }
 
+#[derive(Debug)]
 pub struct ReLU;
 pub struct Softmax;
 

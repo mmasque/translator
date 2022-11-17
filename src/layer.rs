@@ -1,6 +1,8 @@
 use super::outer;
-use crate::activation::{Activation, Derivative, ReLU};
+use crate::activation::{Activation, Derivative};
 use ndarray::{Array1, Array2};
+
+#[derive(Debug)]
 pub struct Layer<T, F: Activation + Derivative> {
     pub weights: Array2<T>,
     pub biases: Array1<T>,
