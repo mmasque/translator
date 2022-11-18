@@ -53,13 +53,10 @@ fn main() {
 
     for i in 0..50_000 {
         let image = train_data.slice(s![i, ..]).to_owned();
-        println!("Image dimension: {:?}", image.dim());
         let label_ind = train_labels.get(i).unwrap();
         let mut label = Array1::<f32>::zeros(10);
         label[*label_ind as usize] = 1.0;
-        println!("Label: {:?}", label);
         let out = network.forward(&image);
-        println!("Output: {:?}", out);
         let loss = network.backpropagation(&out, &label);
         print!("| {:?} ", loss);
     }
@@ -93,8 +90,8 @@ impl Network {
         let loss = SquareError::loss(result, expected);
         // compute change in loss wrt output layer
         let de_dr = SquareError::derivative(result, expected);
+        println!("Dimension de_dr: {:?}", de_dr.dim());
 
-        //
         self.layers
             .iter_mut()
             .rev()

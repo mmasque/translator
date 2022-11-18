@@ -14,14 +14,14 @@ pub struct Layer<T, F: Activation + Derivative> {
 
 #[derive(Debug)]
 pub struct LayerCache<T> {
-    pub weigthed_inputs: Array1<T>,
+    pub weighted_inputs: Array1<T>,
     pub net_inputs: Array1<T>,
 }
 
 impl LayerCache<f32> {
-    pub fn new(weigthed_inputs: Array1<f32>, net_inputs: Array1<f32>) -> Self {
+    pub fn new(weighted_inputs: Array1<f32>, net_inputs: Array1<f32>) -> Self {
         Self {
-            weigthed_inputs: weigthed_inputs,
+            weighted_inputs: weighted_inputs,
             net_inputs: net_inputs,
         }
     }
@@ -72,29 +72,23 @@ impl<F: Activation + Derivative> Layer<f32, F> {
         // dE_dyj is the change in Error (cost) with respect to the outputs of the previous layer j, yj.
         // We'll compute dE_dyi (i the current layer), and along the way find dE/dw for the weights in this layer.
         let cache = self.cache.as_ref().unwrap();
-        println!(
-            "cache weighted_inputs: {:?}, cache outputs: {:?}",
-            cache.weigthed_inputs, cache.net_inputs
-        );
-        let dyj_dxj = self.activation.derivative(&cache.weigthed_inputs);
-        println!("The change of y wr x is: {:?}", dyj_dxj);
-
+        let dyj_dxj = self.activation.derivative(&cache.weighted_inputs);
         let de_dxj = de_dyj * dyj_dxj;
-        println!("The change of E wr xj is: {:?}", de_dxj);
+        // println!("The change of E wr xj is: {:?}", de_dxj);
         // this is probably slow. computes weight diffs
         let de_dwji = outer::outer(&de_dxj, &cache.net_inputs);
 
-        println!("The change of E wr wji is: {:?}", de_dwji);
+        // println!("The change of E wr wji is: {:?}", de_dwji);
         // compute dE_dyi
-        let de_dyi = self.weights.dot(&de_dxj);
+        let de_dyi = self.weights.t().dot(&de_dxj);
 
-        println!("The change of E wr yi is: {:?}", de_dyi);
+        // println!("The change of E wr yi is: {:?}", de_dyi);
         // update the weights
         self.weights = &self.weights - learning_rate * de_dwji;
-        println!("The weights are now: {:?}", self.weights);
+        // println!("The weights are now: {:?}", self.weights);
         // bias updates
         self.biases = &self.biases - learning_rate * de_dxj;
-        println!("The biases are now: {:?}", self.biases);
+        // println!("The biases are now: {:?}", self.biases);
 
         de_dyi
     }
