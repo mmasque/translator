@@ -1,32 +1,21 @@
 mod activation;
-use activation::{Logistic, Loss, ParamDerivative, SquareError};
+use activation::{
+    Activation, Derivative, Function, Logistic, Loss, ParamDerivative, Softmax, SquareError,
+};
 use layer::Layer;
 use mnist::{self, Mnist, MnistBuilder};
 use ndarray::{arr1, arr2, s, Array1, Array2};
 mod layer;
 mod outer;
 fn main() {
-    // to verify correctness I'm using https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
-    // which walks through the weight values at every step etc
-    // let inputs = Array1::from_vec(vec![0.05, 0.1]);
-    // let expected = Array1::from_vec(vec![0.01, 0.99]);
-    // let builder = NetworkBuilder::new();
-    // let mut network = builder
-    //     .add_layer_manually(arr2(&[[0.15, 0.2], [0.25, 0.3]]), arr1(&[0.35, 0.35]))
-    //     .add_layer_manually(arr2(&[[0.4, 0.45], [0.5, 0.55]]), arr1(&[0.6, 0.6]))
-    //     .build();
-    // // just do the same thing a bunch and see if loss goes down
-    // for i in (0..1000) {
-    //     let out = network.forward(&inputs);
-    //     let loss = network.backpropagation(&out, &expected);
-    //     print!("| {:?} ", loss);
-    // }
     let builder = NetworkBuilder::new();
+    // need to be using a softmax at the end.
+    // ooft convoluted Boxes
     let mut network = builder
-        .add_layer(784)
-        .add_layer(128)
-        .add_layer(64)
-        .add_layer(10)
+        .add_layer(784, Box::new(Logistic {}))
+        .add_layer(128, Box::new(Logistic {}))
+        .add_layer(64, Box::new(Logistic {}))
+        .add_layer(10, Box::new(Softmax {}))
         .build();
 
     // take in mnist
@@ -51,27 +40,21 @@ fn main() {
     let train_labels: Array1<u8> = Array1::from_shape_vec(50_000, trn_lbl)
         .expect("Error converting training labels to Array2 struct");
 
-    for i in 0..50_000 {
+    for i in 0..5_000 {
         let image = train_data.slice(s![i, ..]).to_owned();
+
         let label_ind = train_labels.get(i).unwrap();
         let mut label = Array1::<f32>::zeros(10);
         label[*label_ind as usize] = 1.0;
+
         let out = network.forward(&image);
         let loss = network.backpropagation(&out, &label);
-        print!("| {:?} ", loss);
+        println!("| {:?} ", loss);
     }
 }
-// the first goal is to build a simple neural network.
-
-// An input layer
-// A hidden layer with ReLU
-// an output layer with a sigmoid
-// will need to implement forward propagation
-// will need to implement backpropagation
-// the dataset will be MINST, from here: https://deepai.org/dataset/mnist
 
 struct Network {
-    layers: Vec<Layer<f32, Logistic>>,
+    layers: Vec<Layer<f32>>,
 }
 
 impl Network {
@@ -88,9 +71,9 @@ impl Network {
         // backprop as used here is a misnomer, because we are combining it with gradient descent to update weights and biases.
         //TODO extract to a Loss enum to support multiple enum types
         let loss = SquareError::loss(result, expected);
+
         // compute change in loss wrt output layer
         let de_dr = SquareError::derivative(result, expected);
-        println!("Dimension de_dr: {:?}", de_dr.dim());
 
         self.layers
             .iter_mut()
@@ -110,7 +93,7 @@ impl NetworkBuilder {
             network: Network::new(),
         }
     }
-    pub fn add_layer(mut self, num_nodes: usize) -> Self {
+    pub fn add_layer(mut self, num_nodes: usize, act: Box<dyn Function>) -> Self {
         // get the number of nodes in the previous layer (the last in the list)
         let num_inputs = self
             .network
@@ -121,14 +104,17 @@ impl NetworkBuilder {
 
         self.network
             .layers
-            .push(Layer::random(Logistic {}, num_nodes, num_inputs));
+            .push(Layer::random(act, num_nodes, num_inputs));
 
         self
     }
-    pub fn add_layer_manually(mut self, weights: Array2<f32>, biases: Array1<f32>) -> Self {
-        self.network
-            .layers
-            .push(Layer::new(Logistic {}, weights, biases));
+    pub fn add_layer_manually(
+        mut self,
+        weights: Array2<f32>,
+        biases: Array1<f32>,
+        act: Box<dyn Function>,
+    ) -> Self {
+        self.network.layers.push(Layer::new(act, weights, biases));
         self
     }
     pub fn build(self) -> Network {

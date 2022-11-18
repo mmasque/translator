@@ -1,5 +1,8 @@
 use ndarray::{Array, Array1};
 
+pub trait Function: Activation + Derivative {}
+impl<T: Activation + Derivative> Function for T {}
+
 pub trait Activation {
     fn activate(&self, input: &Array1<f32>) -> Array1<f32>;
 }
@@ -33,16 +36,17 @@ impl Activation for ReLU {
 }
 
 impl Activation for Softmax {
-    fn activate(&self, _input: &Array1<f32>) -> Array1<f32> {
-        //let exp_sum: f32 = input.iter().map(|x| x.exp()).sum();
-        //input.iter().map(|x| x.exp() / exp_sum).collect()
-        unimplemented!()
+    fn activate(&self, input: &Array1<f32>) -> Array1<f32> {
+        // TODO avoid this double computation by looking into a non consuming sum.
+        let exps = input.iter().map(|x| x.exp());
+        let sum: f32 = input.iter().map(|x| x.exp()).sum();
+        exps.map(|x| x / sum).collect()
     }
 }
 
 impl Activation for Logistic {
     fn activate(&self, input: &Array1<f32>) -> Array1<f32> {
-        input.map(|x| 1.0 / (1.0 + std::f32::consts::E.powf(-*x)))
+        input.map(|x| 1.0 / (1.0 + (-*x).exp()))
     }
 }
 
@@ -54,16 +58,18 @@ impl Derivative for ReLU {
 
 impl Derivative for Logistic {
     fn derivative(&self, input: &Array1<f32>) -> Array1<f32> {
-        input.map(|x| {
-            (1.0 / (1.0 + std::f32::consts::E.powf(-*x)))
-                * (1.0 - 1.0 / (1.0 + std::f32::consts::E.powf(-*x)))
-        })
+        input.map(|x| (1.0 / (1.0 + (-*x).exp())) * (1.0 - 1.0 / (1.0 + (-*x).exp())))
     }
 }
 
-impl Derivative for SquareError {
+impl Derivative for Softmax {
+    // Softmax is not expressible as an elementwise function
+    // instead it's a proper vector function so its derivative
+    // is the jacobian. So I'll just ignore the off diagonal
+    // elements https://deepnotes.io/softmax-crossentropy#derivative-of-softmax
     fn derivative(&self, input: &Array1<f32>) -> Array1<f32> {
-        todo!()
+        let sum_squared: f32 = f32::powi(input.iter().map(|x| x.exp()).sum(), 2);
+        input.map(|x| f32::powi(*x, 2) / sum_squared)
     }
 }
 
