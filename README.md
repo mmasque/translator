@@ -1,7 +1,7 @@
 # translator
 
 My goal here is to build a Neural Machine Translation program from scratch, entirely in Rust.
-For now, I'm starting with a simpler problem: building a feedforward neural network and training it to classify digits from the MNIST dataset.
+For now, I'm starting with a simpler problem: building a feedforward neural network and training it to classify digits from the MNIST dataset. I got annoyed of manually computing derivatives so I am pausing `translator` while I build an autodifferentiation module called [`drift`](https://github.com/mmasque/drift). 
 
 ## Motivation
 This is mostly a learning exercise where I hope to improve my Rust skills and internalise fundamental machine learning concepts. 
